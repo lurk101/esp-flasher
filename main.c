@@ -13,14 +13,11 @@
  * limitations under the License.
  */
 
-#include <ctype.h>
 #include <getopt.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/param.h>
-#include <unistd.h>
 
 #include "esp_loader.h"
 
@@ -35,12 +32,14 @@
 #define HIGHER_BAUD_RATE 460800
 #define SERIAL_DEVICE "/dev/ttyS0"
 
+#define MAX_PARTITIONS 8
+
 static struct {
     char* f_name;
     char* data;
     size_t size;
     uint32_t addr;
-} parts[8];
+} parts[MAX_PARTITIONS];
 
 static uint32_t n_parts = 0;
 
@@ -59,10 +58,10 @@ static void help(void) {
 }
 
 int main(int argc, char** argv) {
-    loader_raspberry_config_t config = {.device = SERIAL_DEVICE,
-                                        .baudrate = DEFAULT_BAUD_RATE,
-                                        .reset_trigger_pin = TARGET_RST_Pin,
-                                        .io0_trigger_pin = TARGET_IO0_Pin};
+    loader_config_t config = {.device = SERIAL_DEVICE,
+                              .baudrate = DEFAULT_BAUD_RATE,
+                              .reset_trigger_pin = TARGET_RST_Pin,
+                              .io0_trigger_pin = TARGET_IO0_Pin};
     int c;
     opterr = 0;
     for (;;) {
@@ -93,21 +92,21 @@ int main(int argc, char** argv) {
         case '?':
             if (optopt == 'c')
                 fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            else if (isprint(optopt))
-                fprintf(stderr, "Unknown option `-%c'.\n", optopt);
             else
-                fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
+                fprintf(stderr, "Unknown option `-%c'.\n", optopt);
             return -1;
         default:
             abort();
         }
     }
-
     printf("ESP flasher - port = %s, baud = %d, en_gpio = %d, io0_gpio = %d\n", config.device,
            config.baudrate, config.reset_trigger_pin, config.io0_trigger_pin);
-
     int i;
     for (i = optind; i < argc; i++) {
+        if (n_parts >= MAX_PARTITIONS) {
+            printf("Too many partitions\n");
+            return -1;
+        }
         if (*argv[i] == '0' && (*(argv[i] + 1) == 'x' || *(argv[i] + 1) == 'X'))
             parts[n_parts].addr = strtol(argv[i] + 2, NULL, 16);
         else
@@ -141,8 +140,36 @@ int main(int argc, char** argv) {
             return -1;
         }
     }
-    if (loader_port_raspberry_init(&config) == ESP_LOADER_SUCCESS) {
+    if (loader_port_init(&config) == ESP_LOADER_SUCCESS) {
         if (connect_to_target(HIGHER_BAUD_RATE) == ESP_LOADER_SUCCESS) {
+            char* cp;
+            switch (esp_loader_get_target()) {
+            case ESP8266_CHIP:
+                cp = "ESP8266";
+                break;
+            case ESP32_CHIP:
+                cp = "ESP32";
+                break;
+            case ESP32S2_CHIP:
+                cp = "ESP32S2";
+                break;
+            case ESP32C3_CHIP:
+                cp = "ESP32C3";
+                break;
+            case ESP32S3_CHIP:
+                cp = "ESP32S3";
+                break;
+            case ESP32C2_CHIP:
+                cp = "ESP32C2";
+                break;
+            case ESP32H2_CHIP:
+                cp = "ESP32H2";
+                break;
+            case ESP_UNKNOWN_CHIP:
+                cp = "UNKNOWN";
+                break;
+            }
+            printf("%s chip detected\n", cp);
             for (i = 0; i < n_parts; i++) {
                 printf("%08x %8lu %s\n", parts[i].addr, parts[i].size, parts[i].f_name);
                 flash_binary((uint8_t*)parts[i].data, parts[i].size, parts[i].addr);

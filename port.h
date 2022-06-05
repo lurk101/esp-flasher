@@ -23,6 +23,6 @@ typedef struct {
     uint32_t baudrate;
     uint32_t reset_trigger_pin;
     uint32_t io0_trigger_pin;
-} loader_raspberry_config_t;
+} loader_config_t;
 
-esp_loader_error_t loader_port_raspberry_init(const loader_raspberry_config_t* config);
+esp_loader_error_t loader_port_init(const loader_config_t* config);

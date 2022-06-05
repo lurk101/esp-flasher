@@ -13,8 +13,9 @@
  * limitations under the License.
  */
 
-#include "esp_targets.h"
 #include <stddef.h>
+
+#include "esp_targets.h"
 
 #define MAX_MAGIC_VALUES 2
 
@@ -40,7 +41,6 @@ static esp_loader_error_t spi_config_esp32(uint32_t efuse_base, uint32_t* spi_co
 static esp_loader_error_t spi_config_esp32xx(uint32_t efuse_base, uint32_t* spi_config);
 
 static const esp_target_t esp_target[ESP_MAX_CHIP] = {
-
     // ESP8266
     {
         .regs =
@@ -57,7 +57,6 @@ static const esp_target_t esp_target[ESP_MAX_CHIP] = {
         .chip_magic_value = {0xfff0c101, 0},
         .read_spi_config = NULL, // Not used
     },
-
     // ESP32
     {
         .regs =
@@ -74,7 +73,6 @@ static const esp_target_t esp_target[ESP_MAX_CHIP] = {
         .chip_magic_value = {0x00f01d83, 0},
         .read_spi_config = spi_config_esp32,
     },
-
     // ESP32S2
     {
         .regs =
@@ -91,7 +89,6 @@ static const esp_target_t esp_target[ESP_MAX_CHIP] = {
         .chip_magic_value = {0x000007c6, 0},
         .read_spi_config = spi_config_esp32xx,
     },
-
     // ESP32C3
     {
         .regs =
@@ -108,7 +105,6 @@ static const esp_target_t esp_target[ESP_MAX_CHIP] = {
         .chip_magic_value = {0x6921506f, 0x1b31506f},
         .read_spi_config = spi_config_esp32xx,
     },
-
     // ESP32S3
     {
         .regs =
@@ -125,7 +121,6 @@ static const esp_target_t esp_target[ESP_MAX_CHIP] = {
         .chip_magic_value = {0x00000009, 0},
         .read_spi_config = spi_config_esp32xx,
     },
-
     // ESP32C2
     {
         .regs =
@@ -168,7 +163,6 @@ esp_loader_error_t loader_detect_chip(target_chip_t* target_chip,
                                       const target_registers_t** target_data) {
     uint32_t magic_value;
     RETURN_ON_ERROR(esp_loader_read_register(CHIP_DETECT_MAGIC_REG_ADDR, &magic_value));
-
     for (int chip = 0; chip < ESP_MAX_CHIP; chip++) {
         for (int index = 0; index < MAX_MAGIC_VALUES; index++) {
             if (magic_value == esp_target[chip].chip_magic_value[index]) {
@@ -178,7 +172,6 @@ esp_loader_error_t loader_detect_chip(target_chip_t* target_chip,
             }
         }
     }
-
     return ESP_LOADER_ERROR_INVALID_TARGET;
 }
 
@@ -196,46 +189,32 @@ static inline uint8_t adjust_pin_number(uint8_t num) { return (num >= 30) ? num 
 
 static esp_loader_error_t spi_config_esp32(uint32_t efuse_base, uint32_t* spi_config) {
     *spi_config = 0;
-
     uint32_t reg5, reg3;
     RETURN_ON_ERROR(esp_loader_read_register(efuse_word_addr(efuse_base, 5), &reg5));
     RETURN_ON_ERROR(esp_loader_read_register(efuse_word_addr(efuse_base, 3), &reg3));
-
     uint32_t pins = reg5 & 0xfffff;
-
-    if (pins == 0 || pins == 0xfffff) {
+    if (pins == 0 || pins == 0xfffff)
         return ESP_LOADER_SUCCESS;
-    }
-
     uint8_t clk = adjust_pin_number((pins >> 0) & 0x1f);
     uint8_t q = adjust_pin_number((pins >> 5) & 0x1f);
     uint8_t d = adjust_pin_number((pins >> 10) & 0x1f);
     uint8_t cs = adjust_pin_number((pins >> 15) & 0x1f);
     uint8_t hd = adjust_pin_number((reg3 >> 4) & 0x1f);
-
-    if (clk == cs || clk == d || clk == q || q == cs || q == d || q == d) {
+    if (clk == cs || clk == d || clk == q || q == cs || q == d || q == d)
         return ESP_LOADER_SUCCESS;
-    }
-
     *spi_config = (hd << 24) | (cs << 18) | (d << 12) | (q << 6) | clk;
-
     return ESP_LOADER_SUCCESS;
 }
 
 // Applies for esp32s2, esp32c3 and esp32c3
 static esp_loader_error_t spi_config_esp32xx(uint32_t efuse_base, uint32_t* spi_config) {
     *spi_config = 0;
-
     uint32_t reg1, reg2;
     RETURN_ON_ERROR(esp_loader_read_register(efuse_word_addr(efuse_base, 18), &reg1));
     RETURN_ON_ERROR(esp_loader_read_register(efuse_word_addr(efuse_base, 19), &reg2));
-
     uint32_t pins = ((reg1 >> 16) | ((reg2 & 0xfffff) << 16)) & 0x3fffffff;
-
-    if (pins == 0 || pins == 0xffffffff) {
+    if (pins == 0 || pins == 0xffffffff)
         return ESP_LOADER_SUCCESS;
-    }
-
     *spi_config = pins;
     return ESP_LOADER_SUCCESS;
 }

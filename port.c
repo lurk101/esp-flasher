@@ -16,39 +16,31 @@
 #include "port.h"
 #include "serial_comm.h"
 #include "serial_io.h"
+
 #include <pigpio.h>
 
-#include <errno.h>
 #include <fcntl.h>
-#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/ioctl.h>
-#include <sys/param.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <termios.h>
-#include <time.h>
 #include <unistd.h>
 
-// #define SERIAL_DEBUG_ENABLE
+//#define SERIAL_DEBUG_ENABLE
+
+#define MAX(a, b) ((a) > (b)) ? (a) : (b)
 
 #ifdef SERIAL_DEBUG_ENABLE
 
 static void serial_debug_print(const uint8_t* data, uint16_t size, bool write) {
     static bool write_prev = false;
     uint8_t hex_str[3];
-
     if (write_prev != write) {
         write_prev = write;
         printf("\n--- %s ---\n", write ? "WRITE" : "READ");
     }
-
-    for (uint32_t i = 0; i < size; i++) {
+    for (uint32_t i = 0; i < size; i++)
         printf("%02x ", data[i]);
-    }
 }
 
 #else
@@ -132,28 +124,21 @@ static speed_t convert_baudrate(int baud) {
 static int serialOpen(const char* device, uint32_t baudrate) {
     struct termios options;
     int status, fd;
-
     if ((fd = open(device, O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK)) == -1) {
         printf("Error occured while opening serial port !\n");
         return -1;
     }
-
     fcntl(fd, F_SETFL, O_RDWR);
-
     // Get and modify current options:
-
     tcgetattr(fd, &options);
     speed_t baud = convert_baudrate(baudrate);
-
     if (baud < 0) {
         printf("Invalid baudrate!\n");
         return -1;
     }
-
     cfmakeraw(&options);
     cfsetispeed(&options, baud);
     cfsetospeed(&options, baud);
-
     options.c_cflag |= (CLOCAL | CREAD);
     options.c_cflag &= ~(PARENB | CSTOPB | CSIZE);
     options.c_cflag |= CS8;
@@ -162,49 +147,34 @@ static int serialOpen(const char* device, uint32_t baudrate) {
     options.c_iflag &= ~(IXON | IXOFF | IXANY); // Turn off s/w flow ctrl
     options.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR |
                          ICRNL); // Disable any special handling of received bytes
-
     options.c_cc[VMIN] = 0;
     options.c_cc[VTIME] = 10; // 1 Second
-
     tcsetattr(fd, TCSANOW, &options);
-
     ioctl(fd, TIOCMGET, &status);
-
     status |= TIOCM_DTR;
     status |= TIOCM_RTS;
-
     ioctl(fd, TIOCMSET, &status);
-
     usleep(10000); // 10mS
-
     return fd;
 }
 
 static esp_loader_error_t change_baudrate(int file_desc, int baudrate) {
     struct termios options;
     speed_t baud = convert_baudrate(baudrate);
-
-    if (baud < 0) {
+    if (baud < 0)
         return ESP_LOADER_ERROR_INVALID_PARAM;
-    }
-
     tcgetattr(file_desc, &options);
-
     cfmakeraw(&options);
     cfsetispeed(&options, baud);
     cfsetospeed(&options, baud);
-
     tcsetattr(file_desc, TCSANOW, &options);
-
     return ESP_LOADER_SUCCESS;
 }
 
 static void set_timeout(uint32_t timeout) {
     struct termios options;
-
     timeout /= 100;
     timeout = MAX(timeout, 1);
-
     tcgetattr(serial, &options);
     options.c_cc[VTIME] = timeout;
     tcsetattr(serial, TCSANOW, &options);
@@ -213,14 +183,12 @@ static void set_timeout(uint32_t timeout) {
 static esp_loader_error_t read_char(char* c, uint32_t timeout) {
     set_timeout(timeout);
     int read_bytes = read(serial, c, 1);
-
-    if (read_bytes == 1) {
+    if (read_bytes == 1)
         return ESP_LOADER_SUCCESS;
-    } else if (read_bytes == 0) {
+    else if (read_bytes == 0)
         return ESP_LOADER_ERROR_TIMEOUT;
-    } else {
+    else
         return ESP_LOADER_ERROR_FAIL;
-    }
 }
 
 static esp_loader_error_t read_data(char* buffer, uint32_t size) {
@@ -228,43 +196,35 @@ static esp_loader_error_t read_data(char* buffer, uint32_t size) {
         uint32_t remaining_time = loader_port_remaining_time();
         RETURN_ON_ERROR(read_char(&buffer[i], remaining_time));
     }
-
     return ESP_LOADER_SUCCESS;
 }
 
-esp_loader_error_t loader_port_raspberry_init(const loader_raspberry_config_t* config) {
+esp_loader_error_t loader_port_init(const loader_config_t* config) {
     s_reset_trigger_pin = config->reset_trigger_pin;
     s_io0_trigger_pin = config->io0_trigger_pin;
-
     serial = serialOpen(config->device, config->baudrate);
     if (serial < 0) {
         printf("Serial port could not be opened!\n");
         return ESP_LOADER_ERROR_FAIL;
     }
-
     if (gpioInitialise() < 0) {
         printf("pigpio initialisation failed\n");
         return ESP_LOADER_ERROR_FAIL;
     }
-
     gpioSetMode(config->reset_trigger_pin, PI_OUTPUT);
     gpioSetMode(config->io0_trigger_pin, PI_OUTPUT);
-
     return ESP_LOADER_SUCCESS;
 }
 
 esp_loader_error_t loader_port_serial_write(const uint8_t* data, uint16_t size, uint32_t timeout) {
     serial_debug_print(data, size, true);
-
     int written = write(serial, data, size);
-
-    if (written < 0) {
+    if (written < 0)
         return ESP_LOADER_ERROR_FAIL;
-    } else if (written < size) {
+    else if (written < size)
         return ESP_LOADER_ERROR_TIMEOUT;
-    } else {
+    else
         return ESP_LOADER_SUCCESS;
-    }
 }
 
 esp_loader_error_t loader_port_serial_read(uint8_t* data, uint16_t size, uint32_t timeout) {
