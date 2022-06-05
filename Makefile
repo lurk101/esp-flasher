@@ -1,18 +1,25 @@
-BIN	= flasher
-CC	= gcc
-STRIP	= strip
-#STRIP	= :
-#ECHO	=
-#OFLAGS	= -g
-OFLAGS	= -O3 -flto
-ECHO	= @
-CFLAGS	= $(OFLAGS) -Wall -fdata-sections -ffunction-sections
-LDFLAGS	= $(OFLAGS) -Wl,--gc-sections -Wl,-Map,$(BIN).map
-LDFLAGS	+= -lpigpio
+TEST = 0
 
-SRC	= common.c esp_loader.c esp_targets.c main.c port.c serial_comm.c
-OBJ	= $(SRC:.c=.o)
-DEP	= $(SRC:.c=.d)
+BIN = flasher
+CC  = gcc
+
+ifeq ($(TEST), 1)
+  STRIP  = :
+  OFLAGS = -g
+  ECHO   =
+else
+  STRIP  = strip
+  OFLAGS = -O3 -flto
+  ECHO   = @
+endif
+
+CFLAGS  = $(OFLAGS) -Wall -fdata-sections -ffunction-sections
+LDFLAGS = $(OFLAGS) -Wl,--gc-sections -Wl,-Map,$(BIN).map
+LDFLAGS += -lpigpio
+
+SRC = common.c esp_loader.c esp_targets.c main.c port.c serial_comm.c
+OBJ = $(SRC:.c=.o)
+DEP = $(SRC:.c=.d)
 
 all: $(BIN)
 
