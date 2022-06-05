@@ -19,7 +19,7 @@
 #include <stdint.h>
 
 typedef struct {
-    const char *device;
+    const char* device;
     uint32_t baudrate;
     uint32_t reset_trigger_pin;
     uint32_t io0_trigger_pin;

@@ -25,7 +25,7 @@
 
 #include "common.h"
 
-#include "raspberry_port.h"
+#include "port.h"
 
 #define TARGET_RST_Pin 2
 #define TARGET_IO0_Pin 3
@@ -41,7 +41,7 @@ static uint32_t io0_gpio = TARGET_IO0_Pin;
 
 static struct {
     const char* f_name;
-    uint8_t* data;
+    char* data;
     size_t size;
     uint32_t addr;
 } parts[8];
@@ -134,7 +134,7 @@ int main(int argc, char** argv) {
 
     if (connect_to_target(HIGHER_BAUD_RATE) == ESP_LOADER_SUCCESS) {
         for (i = 0; i < n_parts; i++)
-            flash_binary(parts[i].data, parts[i].size, parts[i].addr);
+            flash_binary((uint8_t*)parts[i].data, parts[i].size, parts[i].addr);
     }
 
     loader_port_reset_target();

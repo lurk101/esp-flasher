@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-#include "raspberry_port.h"
+#include "port.h"
 #include "serial_comm.h"
 #include "serial_io.h"
 #include <pigpio.h>
@@ -268,10 +268,8 @@ esp_loader_error_t loader_port_serial_write(const uint8_t* data, uint16_t size, 
 }
 
 esp_loader_error_t loader_port_serial_read(uint8_t* data, uint16_t size, uint32_t timeout) {
-    RETURN_ON_ERROR(read_data(data, size));
-
+    RETURN_ON_ERROR(read_data((char*)data, size));
     serial_debug_print(data, size, false);
-
     return ESP_LOADER_SUCCESS;
 }
 
