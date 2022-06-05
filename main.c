@@ -14,6 +14,7 @@
  */
 
 #include <ctype.h>
+#include <getopt.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,7 +36,7 @@
 #define SERIAL_DEVICE "/dev/ttyS0"
 
 static struct {
-    const char* f_name;
+    char* f_name;
     char* data;
     size_t size;
     uint32_t addr;
@@ -44,7 +45,17 @@ static struct {
 static uint32_t n_parts = 0;
 
 static void help(void) {
-    printf("flasher [-p serial_port] [-b baud] [-e EN_gpio] [-0 IO0_gpio ] addr file ...\n");
+    printf("flasher [-p serial_port] [-b baud] [-r RST_gpio] [-0 IO0_gpio ] addr file ...\n"
+           "\n"
+           "Options:\n"
+           "-p,--port   serial port (default %s)\n"
+           "-b,--baud   serial port baud rate (default %d baud)\n"
+           "-r,--reset  reset GPIO number (default GPIO %d)\n"
+           "-0,--io0    IO0 (PROG) gpio number (default GPIO %d)\n"
+           "Parameters:\n"
+           "addr file   programming address and binary file name\n"
+           "            can repeat up to 8 times\n",
+           SERIAL_DEVICE, DEFAULT_BAUD_RATE, TARGET_RST_Pin, TARGET_IO0_Pin);
 }
 
 int main(int argc, char** argv) {
@@ -54,7 +65,15 @@ int main(int argc, char** argv) {
                                         .io0_trigger_pin = TARGET_IO0_Pin};
     int c;
     opterr = 0;
-    while ((c = getopt(argc, argv, "hp:b:e:0:")) != -1)
+    for (;;) {
+        int option_index = 0;
+        static struct option long_options[] = {
+            {"help", no_argument, 0, 'h'},       {"port", required_argument, 0, 'p'},
+            {"baud", required_argument, 0, 'b'}, {"reset", required_argument, 0, 'r'},
+            {"io0", required_argument, 0, '0'},  {0, 0, 0, 0}};
+        c = getopt_long(argc, argv, "hp:b:r:0:", long_options, &option_index);
+        if (c == -1)
+            break;
         switch (c) {
         case 'h':
             help();
@@ -82,9 +101,10 @@ int main(int argc, char** argv) {
         default:
             abort();
         }
+    }
 
-    printf("port = %s, baud = %d, en_gpio = %d, io0_gpio = %d\n", config.device, config.baudrate,
-           config.reset_trigger_pin, config.io0_trigger_pin);
+    printf("ESP flasher - port = %s, baud = %d, en_gpio = %d, io0_gpio = %d\n", config.device,
+           config.baudrate, config.reset_trigger_pin, config.io0_trigger_pin);
 
     int i;
     for (i = optind; i < argc; i++) {
@@ -121,13 +141,14 @@ int main(int argc, char** argv) {
             return -1;
         }
     }
-    loader_port_raspberry_init(&config);
-    if (connect_to_target(HIGHER_BAUD_RATE) == ESP_LOADER_SUCCESS) {
-        for (i = 0; i < n_parts; i++) {
-            printf("%08x %8lu %s\n", parts[i].addr, parts[i].size, parts[i].f_name);
-            flash_binary((uint8_t*)parts[i].data, parts[i].size, parts[i].addr);
+    if (loader_port_raspberry_init(&config) == ESP_LOADER_SUCCESS) {
+        if (connect_to_target(HIGHER_BAUD_RATE) == ESP_LOADER_SUCCESS) {
+            for (i = 0; i < n_parts; i++) {
+                printf("%08x %8lu %s\n", parts[i].addr, parts[i].size, parts[i].f_name);
+                flash_binary((uint8_t*)parts[i].data, parts[i].size, parts[i].addr);
+            }
+            loader_port_reset_target();
         }
-        loader_port_reset_target();
     }
     printf("Done\n");
 }

@@ -1,11 +1,11 @@
 BIN	= flasher
 CC	= gcc
 STRIP	= strip
-
+#STRIP	= :
 #ECHO	=
 #OFLAGS	= -g
-ECHO	= @
 OFLAGS	= -O3 -flto
+ECHO	= @
 CFLAGS	= $(OFLAGS) -Wall -fdata-sections -ffunction-sections
 LDFLAGS	= $(OFLAGS) -Wl,--gc-sections -Wl,-Map,$(BIN).map
 LDFLAGS	+= -lpigpio
