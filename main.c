@@ -34,11 +34,6 @@
 #define HIGHER_BAUD_RATE 460800
 #define SERIAL_DEVICE "/dev/ttyS0"
 
-static char* port = SERIAL_DEVICE;
-static uint32_t baud = DEFAULT_BAUD_RATE;
-static uint32_t en_gpio = TARGET_RST_Pin;
-static uint32_t io0_gpio = TARGET_IO0_Pin;
-
 static struct {
     const char* f_name;
     char* data;
@@ -53,26 +48,28 @@ static void help(void) {
 }
 
 int main(int argc, char** argv) {
+    loader_raspberry_config_t config = {.device = SERIAL_DEVICE,
+                                        .baudrate = DEFAULT_BAUD_RATE,
+                                        .reset_trigger_pin = TARGET_RST_Pin,
+                                        .io0_trigger_pin = TARGET_IO0_Pin};
     int c;
-
     opterr = 0;
-
     while ((c = getopt(argc, argv, "hp:b:e:0:")) != -1)
         switch (c) {
         case 'h':
             help();
             return 0;
         case 'p':
-            port = optarg;
+            config.device = optarg;
             break;
         case 'b':
-            baud = atoi(optarg);
+            config.baudrate = atoi(optarg);
             break;
         case 'e':
-            en_gpio = atoi(optarg);
+            config.reset_trigger_pin = atoi(optarg);
             break;
         case '0':
-            io0_gpio = atoi(optarg);
+            config.io0_trigger_pin = atoi(optarg);
             break;
         case '?':
             if (optopt == 'c')
@@ -86,7 +83,8 @@ int main(int argc, char** argv) {
             abort();
         }
 
-    printf("port = %s, baud = %d, en_gpio = %d, io0_gpio = %d\n", port, baud, en_gpio, io0_gpio);
+    printf("port = %s, baud = %d, en_gpio = %d, io0_gpio = %d\n", config.device, config.baudrate,
+           config.reset_trigger_pin, config.io0_trigger_pin);
 
     int i;
     for (i = optind; i < argc; i++) {
@@ -123,19 +121,13 @@ int main(int argc, char** argv) {
             return -1;
         }
     }
-    const loader_raspberry_config_t config = {
-        .device = port,
-        .baudrate = baud,
-        .reset_trigger_pin = en_gpio,
-        .io0_trigger_pin = io0_gpio,
-    };
-
     loader_port_raspberry_init(&config);
-
     if (connect_to_target(HIGHER_BAUD_RATE) == ESP_LOADER_SUCCESS) {
-        for (i = 0; i < n_parts; i++)
+        for (i = 0; i < n_parts; i++) {
+            printf("%08x %8lu %s\n", parts[i].addr, parts[i].size, parts[i].f_name);
             flash_binary((uint8_t*)parts[i].data, parts[i].size, parts[i].addr);
+        }
+        loader_port_reset_target();
     }
-
-    loader_port_reset_target();
+    printf("Done\n");
 }

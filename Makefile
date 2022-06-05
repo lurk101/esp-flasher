@@ -10,7 +10,7 @@ CFLAGS	= $(OFLAGS) -Wall -fdata-sections -ffunction-sections
 LDFLAGS	= $(OFLAGS) -Wl,--gc-sections -Wl,-Map,$(BIN).map
 LDFLAGS	+= -lpigpio
 
-SRC	= $(wildcard *.c)
+SRC	= common.c esp_loader.c esp_targets.c main.c port.c serial_comm.c
 OBJ	= $(SRC:.c=.o)
 DEP	= $(SRC:.c=.d)
 
